@@ -496,34 +496,28 @@ function updateDirection(){
 // D-pad touch
 dpadBtns.forEach(b=>{
   const dir=parseInt(b.dataset.dir);
-  b.addEventListener('pointerdown',e=>{
-    e.preventDefault();b.classList.add('pressed');
-    activePointers[e.pointerId]=dir;
-    updateDirection();
-  });
-  b.addEventListener('pointerup',e=>{
-    e.preventDefault();b.classList.remove('pressed');
-    delete activePointers[e.pointerId];
-    updateDirection();
-  });
-  b.addEventListener('pointerleave',e=>{
-    b.classList.remove('pressed');
-    delete activePointers[e.pointerId];
-    updateDirection();
-  });
-  b.addEventListener('pointercancel',e=>{
-    b.classList.remove('pressed');
-    delete activePointers[e.pointerId];
-    updateDirection();
-  });
+  function press(e){e.preventDefault();b.classList.add('pressed');activePointers[e.pointerId||'touch']=dir;updateDirection()}
+  function release(e){e.preventDefault();b.classList.remove('pressed');delete activePointers[e.pointerId||'touch'];updateDirection()}
+  b.addEventListener('pointerdown',press);
+  b.addEventListener('pointerup',release);
+  b.addEventListener('pointerleave',release);
+  b.addEventListener('pointercancel',release);
+  b.addEventListener('touchstart',press,{passive:false});
+  b.addEventListener('touchend',release);
+  b.addEventListener('touchcancel',release);
 });
 
 // Action buttons
 function bindBtn(el,cb){
-  el.addEventListener('pointerdown',e=>{e.preventDefault();el.classList.add('pressed')});
-  el.addEventListener('pointerup',e=>{e.preventDefault();el.classList.remove('pressed');cb(e)});
-  el.addEventListener('pointerleave',e=>{el.classList.remove('pressed')});
-  el.addEventListener('pointercancel',e=>{el.classList.remove('pressed')});
+  let id=0;
+  function press(e){e.preventDefault();el.classList.add('pressed');id=e.pointerId||'touch'}
+  function release(e){e.preventDefault();el.classList.remove('pressed');if(id===(e.pointerId||'touch'))cb(e)}
+  el.addEventListener('pointerdown',press);
+  el.addEventListener('pointerup',release);
+  el.addEventListener('pointerleave',release);
+  el.addEventListener('pointercancel',release);
+  el.addEventListener('touchstart',press,{passive:false});
+  el.addEventListener('touchend',release);
 }
 bindBtn(btnA,()=>{if(game.titleScreen)return;if(game.dialog)advanceDialog();else if(game.panelOpen)closePanel();else interact();});
 bindBtn(btnB,()=>{if(game.titleScreen)return;if(game.dialog)advanceDialog();else if(game.panelOpen)closePanel();else openMenu();});
@@ -1060,8 +1054,12 @@ document.getElementById('btn-continue').addEventListener('pointerup',()=>{
 
 // --- Game Loop ---
 function gameLoop(){
-  update();
-  render();
+  try{
+    update();
+    render();
+  }catch(e){
+    console.error('Game loop error:',e);
+  }
   requestAnimationFrame(gameLoop);
 }
 
