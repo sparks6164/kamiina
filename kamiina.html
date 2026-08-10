@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>KAMIINA</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;font-family:'Courier New',monospace}
+#game-wrapper{display:flex;flex-direction:column;width:100%;height:100%;max-width:500px;margin:0 auto;background:#0d0d1a}
+#canvas-container{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #444;border-radius:4px}
+#hud{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#1a1a2e;color:#e8d8b0;font-size:13px;gap:6px;min-height:36px;border-top:1px solid #333;flex-shrink:0}
+.hud-stat{display:flex;align-items:center;gap:3px}
+.hud-bar{width:48px;height:8px;background:#333;border-radius:2px;overflow:hidden}
+.hud-bar-fill{height:100%;transition:width .2s}
+.hp-fill{background:#e84040}
+.mp-fill{background:#4080e8}
+#controls{display:flex;justify-content:space-between;align-items:center;padding:8px 12px 12px;background:#12122a;gap:8px;flex-shrink:0}
+#dpad{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px;flex-shrink:0}
+.dbtn{width:48px;height:48px;background:#252545;border:2px solid #3a3a60;border-radius:8px;color:#ccc;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.dbtn:active,.dbtn.pressed{background:#4a4a80;border-color:#6a6aa0;transform:scale(.9)}
+.dbtn.empty{background:transparent;border:none;pointer-events:none}
+#action-btns{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.abtn{width:52px;height:52px;border-radius:50%;border:2px solid;font-size:13px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;color:#fff}
+.abtn:active,.abtn.pressed{transform:scale(.85)}
+#btn-a{background:#e84040;border-color:#ff6060;font-size:16px}
+#btn-b{background:#4080e8;border-color:#60a0ff;font-size:16px}
+#btn-inv{background:#50a040;border-color:#70d060;width:42px;height:42px;font-size:12px}
+#btn-menu{background:#a060c0;border-color:#c080e0;width:42px;height:42px;font-size:12px}
+/* Overlays */
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;z-index:10}
+.overlay.show{display:flex}
+#dialog-overlay{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.88);color:#f8e8c0;padding:12px 14px;font-size:14px;line-height:1.5;display:none;z-index:20;border-top:2px solid #665840;min-height:80px;flex-shrink:0}
+#dialog-overlay.show{display:block}
+.dialog-name{color:#ffc040;font-weight:bold;margin-bottom:4px}
+.dialog-hint{color:#888;font-size:11px;margin-top:6px;text-align:right}
+#panel-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:none;flex-direction:column;z-index:15;color:#e8d8b0;overflow-y:auto;padding:10px}
+#panel-overlay.show{display:flex}
+.panel-header{font-size:16px;color:#ffc040;text-align:center;padding:8px;border-bottom:1px solid #444;margin-bottom:8px}
+.panel-close{position:absolute;right:10px;top:8px;width:32px;height:32px;background:#c04040;color:#fff;border:none;border-radius:50%;font-size:18px;cursor:pointer}
+.item-slot{display:flex;align-items:center;gap:8px;padding:8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;margin-bottom:4px;cursor:pointer}
+.item-slot:active{background:#2a2a4e}
+.item-icon{width:32px;height:32px;background:#252545;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.item-info{flex:1;font-size:12px}
+.item-name{color:#f8e8c0}
+.item-desc{color:#888;font-size:10px}
+.stat-row{display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid #222;font-size:12px}
+.menu-btn{display:block;width:100%;padding:12px;margin:4px 0;background:#252545;border:1px solid #3a3a60;border-radius:6px;color:#f8e8c0;font-size:14px;text-align:center;cursor:pointer}
+.menu-btn:active{background:#4a4a80}
+#title-screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d0d1a;z-index:30}
+#title-screen h1{font-size:36px;color:#ffc040;letter-spacing:4px;margin-bottom:8px;text-shadow:2px 2px 0 #805000}
+#title-screen .subtitle{color:#888;font-size:12px;margin-bottom:30px}
+#title-screen button{width:180px;padding:14px;margin:6px;background:#252545;border:2px solid #4a4a80;border-radius:8px;color:#f8e8c0;font-size:15px;cursor:pointer;font-family:inherit}
+#title-screen button:active{background:#4a4a80}
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <div id="canvas-container">
+    <canvas id="gc"></canvas>
+    <div id="dialog-overlay"><div class="dialog-name" id="dlg-name"></div><div id="dlg-text"></div><div class="dialog-hint">▼ タップで次へ</div></div>
+    <div id="panel-overlay"><button class="panel-close" id="panel-close">✕</button><div class="panel-header" id="panel-title"></div><div id="panel-content"></div></div>
+    <div id="title-screen">
+      <h1>KAMIINA</h1>
+      <div class="subtitle">〜 神名の冒険 〜</div>
+      <button id="btn-newgame">はじめから</button>
+      <button id="btn-continue" style="display:none">つづきから</button>
+    </div>
+  </div>
+  <div id="hud">
+    <div class="hud-stat">❤<div class="hud-bar"><div class="hud-bar-fill hp-fill" id="hp-bar" style="width:100%"></div></div><span id="hp-txt">50/50</span></div>
+    <div class="hud-stat">💧<div class="hud-bar"><div class="hud-bar-fill mp-fill" id="mp-bar" style="width:100%"></div></div><span id="mp-txt">25/25</span></div>
+    <div class="hud-stat">🪙<span id="gold-txt">0</span></div>
+    <div class="hud-stat">Lv<span id="lv-txt">1</span></div>
+  </div>
+  <div id="controls">
+    <div id="dpad">
+      <button class="dbtn" data-dir="7">↖</button><button class="dbtn" data-dir="8">↑</button><button class="dbtn" data-dir="9">↗</button>
+      <button class="dbtn" data-dir="4">←</button><button class="dbtn empty"></button><button class="dbtn" data-dir="6">→</button>
+      <button class="dbtn" data-dir="1">↙</button><button class="dbtn" data-dir="2">↓</button><button class="dbtn" data-dir="3">↘</button>
+    </div>
+    <div id="action-btns">
+      <button class="abtn" id="btn-inv">📦</button>
+      <button class="abtn" id="btn-menu">📋</button>
+      <button class="abtn" id="btn-b">B</button>
+      <button class="abtn" id="btn-a">A</button>
+    </div>
+  </div>
+</div>
+<script>
+// ============ KAMIINA GAME ENGINE ============
+const TILE = 16, MW = 30, MH = 20; // map 30x20 tiles, 480x320 px
+const CW = MW * TILE, CH = MH * TILE;
+
+// --- Color palette ---
+const C = {
+  GRASS:  '#88c048', GRASS2:'#70a838', DIRT:'#c8a850', DIRT2:'#b09040',
+  WATER:  '#3878c8', WATER2:'#2860a8', STONE:'#888888', STONE2:'#707070',
+  WOOD:   '#a87040', WOOD2:'#885830', LEAF:'#389830', LEAF2:'#207820',
+  SAND:   '#e8d898', ROOF:'#c05040', ROOF2:'#a03030',
+  PLAYER: '#f04040', SKIN:'#f8c898', HAIR:'#583818', SHIRT:'#3060d0', PANTS:'#283848',
+  NPC1:   '#f8b040', NPC2:'#70c870', NPC3:'#e880c0',
+  ENEMY:  '#60d030', ENEMY2:'#d8d8d8', ENEMY3:'#8040b0',
+  HPBAR:  '#f04040', MPBAR:'#4080f0', GOLD:'#f8d040',
+};
+
+// --- Tile types ---
+const T = { GRASS:0, GRASS2:1, DIRT:2, DIRT2:3, WATER:4, STONE:5, TREE:6, WALL:7, ROOF:8, ROOF2:90, DOOR:9, SIGN:10, CHEST:11, FLOWER:12, PATH_V:13, PATH_H:14, BRIDGE:15, STAIRS_D:16, STAIRS_U:17, COUNTER:18, BED:19, FENCE:20 };
+
+function solid(t){return [T.WATER,T.STONE,T.TREE,T.WALL,T.ROOF,T.ROOF2,T.COUNTER,T.FENCE].includes(t)}
+
+// --- Sprite data (16x16 pixel art as 1D arrays, 0=transparent or bg) ---
+function makeSprite(def){ const s=document.createElement('canvas');s.width=16;s.height=16;const c=s.getContext('2d');def.forEach(([color,x,y,w,h])=>{c.fillStyle=color;c.fillRect(x,y,w||1,h||1)});return s }
+
+// Player sprites (4 dirs, 2 frames each)
+const playerSprites = (()=>{
+  function hero(footOff){
+    return makeSprite([
+      // hair
+      ['#583818',5,1,5,4],['#583818',4,2,7,2],
+      // face
+      ['#f8c898',5,4,5,4],
+      // eyes
+      ['#000',6,5,1,1],['#000',9,5,1,1],
+      // body/shirt
+      ['#3060d0',4,8,7,4],
+      // arms
+      ['#f8c898',3,8,2,4],['#f8c898',10,8,2,4],
+      // pants+legs
+      ['#283848',4,12,3,4],['#283848',9,12,3,4-footOff],
+      // shoes
+      ['#583818',4+footOff,14,3,2],['#583818',9+footOff,14,3-footOff,2],
+    ]);
+  }
+  return {
+    down:  [hero(0), hero(1)],
+    up:    (()=>{ const f=(o)=>makeSprite([
+      ['#583818',5,0,5,4],['#583818',4,1,7,2],
+      ['#f8c898',5,3,5,4],
+      ['#000',6,4,1,1],['#000',9,4,1,1],
+      ['#3060d0',4,7,7,5],
+      ['#f8c898',3,7,2,4],['#f8c898',10,7,2,4],
+      ['#283848',4,12,3,3+o],['#283848',9,12,3,3],
+      ['#583818',4,14+o,3,2],['#583818',9,14,3,2],
+    ]); return [f(0),f(1)]})(),
+    left:  (()=>{ const f=(o)=>makeSprite([
+      ['#583818',6,1,5,4],['#583818',5,2,6,2],
+      ['#f8c898',6,4,4,4],
+      ['#000',7,5,1,1],['#000',6,5,1,1],
+      ['#3060d0',5,8,6,4],
+      ['#f8c898',4,8,2,4],['#f8c898',10,8,2,4],
+      ['#283848',5,12,2+o,4],['#283848',9,12,3,4],
+      ['#583818',5+o,14,3,2],['#583818',9,14,3,2],
+    ]); return [f(0),f(1)]})(),
+    right: (()=>{ const f=(o)=>makeSprite([
+      ['#583818',5,1,5,4],['#583818',4,2,7,2],
+      ['#f8c898',5,4,5,4],
+      ['#000',6,5,1,1],['#000',9,5,1,1],
+      ['#3060d0',4,8,7,4],
+      ['#f8c898',3,8,2,4],['#f8c898',9,8,2,4],
+      ['#283848',4,12,3,4],['#283848',8-o,12,3,4],
+      ['#583818',4,14,3,2],['#583818',8-o,14,3,2],
+    ]); return [f(0),f(1)]})(),
+  };
+})();
+
+// NPC sprites
+const npcSprites = {
+  elder: makeSprite([['#d8d8d8',5,1,5,4],['#f8c898',5,4,5,4],['#000',6,5,1,1],['#000',9,5,1,1],['#885830',4,8,7,5],['#f8c898',3,8,2,4],['#f8c898',10,8,2,4],['#583818',4,13,3,3],['#583818',9,13,3,3],['#583818',4,15,3,1],['#583818',9,15,3,1]]),
+  girl: makeSprite([['#f8b040',5,1,5,5],['#f8c898',5,5,5,4],['#000',6,6,1,1],['#000',9,6,1,1],['#e86080',4,9,7,4],['#f8c898',3,9,2,4],['#f8c898',10,9,2,4],['#d84060',4,13,3,3],['#d84060',9,13,3,3],['#583818',4,15,3,1],['#583818',9,15,3,1]]),
+  merchant: makeSprite([['#583818',5,1,5,4],['#f8c898',5,4,5,4],['#000',6,5,1,1],['#000',9,5,1,1],['#f8f8f8',4,8,7,5],['#f8c898',3,8,2,4],['#f8c898',10,8,2,4],['#886040',4,13,3,3],['#886040',9,13,3,3],['#583818',4,15,3,1],['#583818',9,15,3,1]]),
+};
+
+// Enemy sprites
+const enemySprites = {
+  slime: makeSprite([['#60d030',4,8,8,6],['#80f040',5,9,6,4],['#000',6,10,1,1],['#000',9,10,1,1],['#40a020',5,13,6,2]]),
+  skeleton: makeSprite([['#e8e8e8',5,1,5,4],['#d8d8d8',5,4,5,1],['#000',5,3,2,2],['#000',9,3,2,2],['#c8c8c8',4,5,7,7],['#d8d8d8',3,6,2,4],['#d8d8d8',10,6,2,4],['#c8c8c8',4,12,3,4],['#c8c8c8',9,12,3,4]]),
+  bat: makeSprite([['#6040a0',2,5,12,7],['#8050c0',3,6,10,5],['#000',5,7,2,2],['#000',9,7,2,2],['#6040a0',1,4,3,2],['#6040a0',12,4,3,2]]),
+};
+
+// Item sprite
+const itemSprite = makeSprite([['#f8d040',5,4,6,8],['#f8e860',6,5,4,6],['#f8c020',5,7,6,2]]);
+
+// --- Map Data ---
+const maps = {};
+// TOWN MAP (30x20)
+maps.town = {
+  name:'ミナトの町', bgm:'town',
+  data: (()=>{
+    const m=Array.from({length:MH},()=>Array(MW).fill(T.GRASS));
+    // River
+    for(let x=0;x<MW;x++){m[6][x]=T.WATER;m[7][x]=T.WATER;}
+    // Bridge
+    for(let x=7;x<11;x++){m[6][x]=T.BRIDGE;m[7][x]=T.BRIDGE}
+    // Paths
+    for(let x=7;x<11;x++){for(let y=2;y<6;y++)m[y][x]=T.DIRT}
+    for(let x=0;x<MW;x++){m[9][x]=T.DIRT;m[10][x]=T.DIRT}
+    for(let y=0;y<7;y++){m[y][3]=T.DIRT;m[y][4]=T.DIRT}
+    for(let y=0;y<7;y++){m[y][17]=T.DIRT;m[y][18]=T.DIRT}
+    // Trees (decoration)
+    function trees(sx,sy,w,h){for(let y=sy;y<sy+h;y++)for(let x=sx;x<sx+w;x++){if(Math.random()<.35)m[y][x]=T.TREE}}
+    trees(0,0,3,4); trees(0,12,4,5); trees(18,0,12,3); trees(20,12,10,5); trees(12,16,8,3);
+    // Flowers
+    [[1,7],[3,11],[15,5],[22,8],[25,3],[8,13]].forEach(([x,y])=>{if(m[y]&&m[y][x]===T.GRASS)m[y][x]=T.FLOWER});
+    // Buildings
+    function house(sx,sy,w,h){
+      for(let y=sy;y<sy+h;y++)for(let x=sx;x<sx+w;x++)m[y][x]=T.WALL;
+      for(let x=sx+1;x<sx+w-1;x++){m[sy][x]=T.ROOF;m[sy-1]&&(m[sy-1][x]=T.ROOF)}
+      m[sy+1][sx+1]=T.DOOR;
+    }
+    function shop(sx,sy,w,h){
+      house(sx,sy,w,h);
+      for(let x=sx;x<sx+w;x++){m[sy-1]&&(m[sy-1][x]=T.ROOF2)}
+      m[sy-1]&&(m[sy-1][sx+Math.floor(w/2)]=T.SIGN);
+    }
+    shop(0,15,4,5);  // weapon shop
+    shop(8,14,5,5);  // item shop
+    house(16,13,5,5); // inn
+    house(23,13,5,5); // elder's house
+    // Fence around town center
+    [[4,8],[5,8],[12,8],[13,8],[14,8]].forEach(([x,y])=>m[y][x]=T.FENCE);
+    // Exit paths
+    m[0][9]=T.DIRT;m[0][10]=T.DIRT; // north exit
+    m[MH-1][17]=T.DIRT;m[MH-1][18]=T.DIRT; // south exit to forest
+    return m;
+  })(),
+  npcs:[
+    {x:3,y:16,sprite:'merchant',name:'武器屋のおじさん',dialogue:['いらっしゃい！\n最高の武器をそろえてるよ！','旅には良い装備が欠かせないね。','また来てくれよな！']},
+    {x:11,y:16,sprite:'girl',name:'マリー',dialogue:['こんにちは！\nあなたも冒険者なの？','この町の北にある洞窟には\nモンスターがいるんだって。','気をつけてね！']},
+    {x:19,y:15,sprite:'merchant',name:'宿屋の主人',dialogue:['一泊30ゴールドだよ。\nゆっくりしていってね！','ベッドで休めばHPとMPが\n完全回復するよ。']},
+    {x:26,y:15,sprite:'elder',name:'長老',dialogue:['おお、若い冒険者よ。','この世界には4つの神殿が\nあると言われている…','全ての神殿を巡った者には\n伝説の剣が授けられるのだ。','まずは北の森を抜けて\n最初の神殿を目指すがよい。']},
+  ],
+  enemies:[
+    {x:22,y:5,type:'slime',level:1},
+    {x:5,y:18,type:'slime',level:1},
+  ],
+  items:[
+    {x:2,y:9,item:'potion'},
+  ],
+  exits:{north:{map:'forest',x:15,y:MH-2},south:null,east:null,west:null},
+};
+
+// FOREST MAP
+maps.forest = {
+  name:'迷いの森', bgm:'forest',
+  data: (()=>{
+    const m=Array.from({length:MH},()=>Array(MW).fill(T.GRASS2));
+    for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){if(Math.random()<.4)m[y][x]=T.TREE}
+    // Clear paths
+    function path(x,y,w,h){for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){if(m[yy])m[yy][xx]=T.DIRT}}
+    path(14,0,3,20); // N-S main path
+    path(0,9,30,3);  // E-W path
+    path(5,3,5,3);   // clearing
+    path(22,14,6,3); // clearing
+    // Stream
+    for(let x=0;x<16;x++){if(m[5])m[5][x]=T.WATER;if(m[6])m[6][x]=T.WATER}
+    path(5,4,6,3); // bridge area
+    // Dungeon entrance (north)
+    path(13,MH-3,5,3);
+    for(let x=13;x<17;x++){m[MH-1][x]=T.STAIRS_D}
+    // Flowers in clearings
+    [[7,3],[8,4],[24,15],[25,14]].forEach(([x,y])=>{if(m[y]&&m[y][x]===T.GRASS2)m[y][x]=T.FLOWER});
+    return m;
+  })(),
+  npcs:[
+    {x:15,y:15,sprite:'elder',name:'森の賢者',dialogue:['よくぞここまで来た…','この先の洞窟には\n最初の神殿への入口がある。','準備はよいか？']},
+  ],
+  enemies:[
+    {x:6,y:4,type:'slime',level:2},
+    {x:9,y:14,type:'skeleton',level:3},
+    {x:23,y:8,type:'bat',level:2},
+    {x:25,y:16,type:'slime',level:3},
+    {x:16,y:2,type:'skeleton',level:4},
+  ],
+  items:[
+    {x:6,y:3,item:'potion'},
+    {x:24,y:15,item:'sword'},
+    {x:20,y:10,item:'potion'},
+  ],
+  exits:{south:{map:'town',x:9,y:1},north:null,east:null,west:null},
+};
+
+// DUNGEON MAP
+maps.dungeon = {
+  name:'はじまりの洞窟', bgm:'dungeon',
+  data: (()=>{
+    const m=Array.from({length:MH},()=>Array(MW).fill(T.STONE));
+    function room(x,y,w,h){
+      for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){if(m[yy])m[yy][xx]=T.DIRT2}
+      for(let yy=y;yy<y+h;yy++){if(m[yy]){m[yy][x]=T.WALL;m[yy][x+w-1]=T.WALL}}
+      for(let xx=x;xx<x+w;xx++){if(m[y])m[y][xx]=T.WALL;if(m[y+h-1])m[y+h-1][xx]=T.WALL}
+    }
+    function hall(x,y,w,h){
+      for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){if(m[yy])m[yy][xx]=T.DIRT2}
+    }
+    room(1,1,8,6);
+    room(20,1,9,6);
+    room(1,12,8,7);
+    room(20,12,9,7);
+    room(11,7,8,6);
+    hall(8,3,4,1); hall(25,6,4,1); hall(8,14,4,1);
+    hall(16,8,1,4); hall(8,9,4,1);
+    // Entrance stairs (south center)
+    m[MH-1][14]=T.STAIRS_U;m[MH-1][15]=T.STAIRS_U;
+    // Boss room stairs (north of center room)
+    m[7][14]=T.STAIRS_D;m[7][15]=T.STAIRS_D;
+    // Chests
+    m[3][3]=T.CHEST;m[27][14]=T.CHEST;
+    return m;
+  })(),
+  npcs:[],
+  enemies:[
+    {x:4,y:4,type:'skeleton',level:5},
+    {x:22,y:4,type:'bat',level:4},
+    {x:13,y:9,type:'skeleton',level:5},
+    {x:23,y:15,type:'slime',level:5},
+    {x:4,y:15,type:'bat',level:4},
+    {x:15,y:4,type:'skeleton',level:5},
+    {x:13,y:10,type:'skeleton',level:6},
+  ],
+  items:[
+    {x:5,y:4,item:'potion'},
+    {x:21,y:3,item:'armor'},
+    {x:14,y:9,item:'potion'},
+    {x:25,y:14,item:'sword'},
+  ],
+  exits:{south:{map:'forest',x:15,y:MH-2},north:{map:'boss',x:8,y:MH-2},east:null,west:null},
+};
+
+// BOSS MAP
+maps.boss = {
+  name:'神殿の間', bgm:'boss',
+  data: (()=>{
+    const m=Array.from({length:MH},()=>Array(MW).fill(T.STONE));
+    // Large room
+    for(let y=2;y<MH-2;y++)for(let x=2;x<MW-2;x++)m[y][x]=T.DIRT2;
+    for(let y=2;y<MH-2;y++){m[y][2]=T.WALL;m[y][MW-3]=T.WALL}
+    for(let x=2;x<MW-2;x++){m[2][x]=T.WALL;m[MH-3][x]=T.WALL}
+    // Altar
+    for(let x=12;x<18;x++){m[MH-4][x]=T.WALL}
+    m[MH-3][14]=T.STAIRS_U;m[MH-3][15]=T.STAIRS_U;
+    return m;
+  })(),
+  npcs:[],
+  enemies:[
+    {x:14,y:7,type:'skeleton',level:8,name:'神殿の守護者',boss:true},
+  ],
+  items:[
+    {x:14,y:MH-5,item:'legend_sword'},
+  ],
+  exits:{south:{map:'dungeon',x:14,y:1},north:null,east:null,west:null},
+};
+
+// --- Items DB ---
+const itemDB = {
+  potion:{name:'ポーション',desc:'HPを30回復',type:'consumable',icon:'🧪',price:20,effect:{hp:30}},
+  hipotion:{name:'ハイポーション',desc:'HPを80回復',type:'consumable',icon:'🧪',price:80,effect:{hp:80}},
+  ether:{name:'エーテル',desc:'MPを20回復',type:'consumable',icon:'💧',price:50,effect:{mp:20}},
+  antidote:{name:'どくけし',desc:'毒を治す',type:'consumable',icon:'💊',price:15,effect:{curePoison:true}},
+  sword:{name:'鉄の剣',desc:'攻撃力+5',type:'weapon',icon:'⚔',price:100,effect:{atk:5}},
+  steel_sword:{name:'鋼の剣',desc:'攻撃力+12',type:'weapon',icon:'⚔',price:300,effect:{atk:12}},
+  legend_sword:{name:'伝説の剣',desc:'攻撃力+30',type:'weapon',icon:'🗡',price:0,effect:{atk:30}},
+  armor:{name:'皮の鎧',desc:'防御力+3',type:'armor',icon:'🛡',price:80,effect:{def:3}},
+  steel_armor:{name:'鋼の鎧',desc:'防御力+8',type:'armor',icon:'🛡',price:250,effect:{def:8}},
+  ring:{name:'守りの指輪',desc:'防御力+2',type:'accessory',icon:'💍',price:150,effect:{def:2}},
+  herb:{name:'薬草',desc:'HPを15回復',type:'consumable',icon:'🌿',price:10,effect:{hp:15}},
+};
+
+// --- Game State ---
+let game={
+  map:null, mapName:'town',
+  player:{x:9*TILE+TILE/2,y:9*TILE+TILE/2,dir:'down',frame:0,walkTimer:0,speed:2,
+    hp:50,maxHp:50,mp:25,maxMp:25,level:1,exp:0,expNeeded:30,
+    atk:8,def:3,gold:50,
+    weapon:null,armor:null,accessory:null,
+  },
+  inventory:['potion','herb'],
+  npcs:[], enemies:[], items:[],
+  camera:{x:0,y:0},
+  dialog:null, dialogQueue:[], dialogCallback:null,
+  panelOpen:false,
+  titleScreen:true,
+  keys:{}, dirPressed:0,
+  effects:[],
+  screenShake:0,
+};
+
+// --- Init ---
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+canvas.width=CW;canvas.height=CH;
+resizeCanvas();
+
+function resizeCanvas(){
+  const cont=document.getElementById('canvas-container');
+  const w=cont.clientWidth-8;
+  const h=cont.clientHeight-8;
+  const scale=Math.min(w/CW,h/CH);
+  canvas.style.width=(CW*scale)+'px';
+  canvas.style.height=(CH*scale)+'px';
+}
+window.addEventListener('resize',resizeCanvas);
+
+// --- Save/Load ---
+function saveGame(){
+  const data={
+    mapName:game.mapName, player:game.player, inventory:game.inventory,
+  };
+  try{localStorage.setItem('kamiina_save',JSON.stringify(data));return true}catch(e){return false}
+}
+function loadGame(){
+  try{
+    const d=localStorage.getItem('kamiina_save');
+    if(!d)return false;
+    const data=JSON.parse(d);
+    game.mapName=data.mapName||'town';
+    Object.assign(game.player,data.player);
+    game.inventory=data.inventory||['potion','herb'];
+    return true;
+  }catch(e){return false}
+}
+
+// --- Map helpers ---
+function loadMap(name){
+  const md=maps[name];
+  if(!md)return;
+  game.mapName=name;
+  game.map=md.data;
+  game.npcs=md.npcs.map(n=>({...n,sprite:n.sprite,dir:'down',frame:0,timer:0,alive:true}));
+  game.enemies=md.enemies.map(e=>({...e,x:e.x*TILE+TILE/2,y:e.y*TILE+TILE/2,sprite:e.type,hp:10+e.level*5,maxHp:10+e.level*5,atk:3+e.level*2,def:1+e.level,dir:'down',frame:0,timer:0,alive:true}));
+  game.items=md.items.map(i=>({...i,x:i.x*TILE+TILE/2,y:i.y*TILE+TILE/2,collected:false}));
+  game.map=md.data;
+  game.map._exits=md.exits||{};
+  game.map._name=md.name||'???';
+  // Update HUD
+  updateHUD();
+}
+
+function getTile(px,py){
+  const tx=Math.floor(px/TILE);
+  const ty=Math.floor(py/TILE);
+  if(tx<0||ty<0||tx>=MW||ty>=MH)return T.STONE;
+  return game.map[ty][tx];
+}
+
+function solidAt(px,py){
+  return solid(getTile(px,py));
+}
+
+// --- Input ---
+const dpadBtns=document.querySelectorAll('.dbtn[data-dir]');
+const btnA=document.getElementById('btn-a');
+const btnB=document.getElementById('btn-b');
+const btnInv=document.getElementById('btn-inv');
+const btnMenu=document.getElementById('btn-menu');
+
+let activePointers={};
+
+function getDirFromKey(){
+  const k=game.keys;
+  let dx=0,dy=0;
+  if(k['ArrowUp']||k['KeyW']||k['w'])dy-=1;
+  if(k['ArrowDown']||k['KeyS']||k['s'])dy+=1;
+  if(k['ArrowLeft']||k['KeyA']||k['a'])dx-=1;
+  if(k['ArrowRight']||k['KeyD']||k['d'])dx+=1;
+  return {dx,dy};
+}
+
+function dirToNum(dx,dy){
+  if(dx===0&&dy===-1)return 8;if(dx===1&&dy===-1)return 9;
+  if(dx===1&&dy===0)return 6;if(dx===1&&dy===1)return 3;
+  if(dx===0&&dy===1)return 2;if(dx===-1&&dy===1)return 1;
+  if(dx===-1&&dy===0)return 4;if(dx===-1&&dy===-1)return 7;
+  return 0;
+}
+function numToDir(n){
+  const map={8:[0,-1],9:[1,-1],6:[1,0],3:[1,1],2:[0,1],1:[-1,1],4:[-1,0],7:[-1,-1]};
+  return map[n]||[0,0];
+}
+
+function updateDirection(){
+  // Check keyboard
+  const kd=getDirFromKey();
+  if(kd.dx!==0||kd.dy!==0){
+    game.dirPressed=dirToNum(kd.dx,kd.dy);
+    return;
+  }
+  // Check dpad active pointers
+  for(const [id,dir] of Object.entries(activePointers)){
+    if(dir!==0){game.dirPressed=dir;return}
+  }
+  game.dirPressed=0;
+}
+
+// D-pad touch
+dpadBtns.forEach(b=>{
+  const dir=parseInt(b.dataset.dir);
+  b.addEventListener('pointerdown',e=>{
+    e.preventDefault();b.classList.add('pressed');
+    activePointers[e.pointerId]=dir;
+    updateDirection();
+  });
+  b.addEventListener('pointerup',e=>{
+    e.preventDefault();b.classList.remove('pressed');
+    delete activePointers[e.pointerId];
+    updateDirection();
+  });
+  b.addEventListener('pointerleave',e=>{
+    b.classList.remove('pressed');
+    delete activePointers[e.pointerId];
+    updateDirection();
+  });
+  b.addEventListener('pointercancel',e=>{
+    b.classList.remove('pressed');
+    delete activePointers[e.pointerId];
+    updateDirection();
+  });
+});
+
+// Action buttons
+function bindBtn(el,cb){
+  el.addEventListener('pointerdown',e=>{e.preventDefault();el.classList.add('pressed')});
+  el.addEventListener('pointerup',e=>{e.preventDefault();el.classList.remove('pressed');cb(e)});
+  el.addEventListener('pointerleave',e=>{el.classList.remove('pressed')});
+  el.addEventListener('pointercancel',e=>{el.classList.remove('pressed')});
+}
+bindBtn(btnA,()=>{if(game.titleScreen)return;if(game.dialog)advanceDialog();else if(game.panelOpen)closePanel();else interact();});
+bindBtn(btnB,()=>{if(game.titleScreen)return;if(game.dialog)advanceDialog();else if(game.panelOpen)closePanel();else openMenu();});
+bindBtn(btnInv,()=>{if(!game.titleScreen&&!game.dialog)openInventory();});
+bindBtn(btnMenu,()=>{if(!game.titleScreen&&!game.dialog)openStats();});
+
+// Keyboard
+window.addEventListener('keydown',e=>{
+  game.keys[e.key]||(game.keys[e.key]=true);game.keys[e.code]=true;
+  updateDirection();
+  if(e.key==='e'||e.key==='E'){if(game.dialog)advanceDialog();else if(game.panelOpen)closePanel();else interact();}
+  if(e.key==='Escape'){if(game.panelOpen)closePanel();else if(game.dialog)closeDialog();else openMenu();}
+  if(e.key==='i'||e.key==='I')openInventory();
+  if(e.key==='c'||e.key==='C')openStats();
+});
+window.addEventListener('keyup',e=>{game.keys[e.key]=false;game.keys[e.code]=false;updateDirection()});
+
+// Prevent scrolling
+document.addEventListener('touchmove',e=>{e.preventDefault()},{passive:false});
+
+// --- Dialogue ---
+function showDialog(name,texts,cb){
+  game.dialog={name,texts,index:0};
+  game.dialogCallback=cb||null;
+  document.getElementById('dlg-name').textContent=name;
+  document.getElementById('dlg-text').textContent=texts[0];
+  document.getElementById('dialog-overlay').classList.add('show');
+}
+function advanceDialog(){
+  const d=game.dialog;
+  if(!d)return;
+  d.index++;
+  if(d.index>=d.texts.length){closeDialog();if(game.dialogCallback)game.dialogCallback();}
+  else document.getElementById('dlg-text').textContent=d.texts[d.index];
+}
+function closeDialog(){
+  game.dialog=null;
+  document.getElementById('dialog-overlay').classList.remove('show');
+}
+
+// --- Panels ---
+function openPanel(title,content){
+  game.panelOpen=true;
+  document.getElementById('panel-title').textContent=title;
+  document.getElementById('panel-content').innerHTML=content;
+  document.getElementById('panel-overlay').classList.add('show');
+}
+function closePanel(){
+  game.panelOpen=false;
+  document.getElementById('panel-overlay').classList.remove('show');
+}
+document.getElementById('panel-close').addEventListener('pointerup',closePanel);
+
+function openInventory(){
+  let html='';
+  if(game.inventory.length===0)html='<div style="text-align:center;color:#888;padding:20px">からっぽ</div>';
+  else game.inventory.forEach((itemKey,i)=>{
+    const it=itemDB[itemKey];
+    if(!it)return;
+    const eq=game.player.weapon===itemKey||game.player.armor===itemKey||game.player.accessory===itemKey;
+    html+=`<div class="item-slot" data-idx="${i}">
+      <div class="item-icon">${it.icon}</div>
+      <div class="item-info"><div class="item-name">${it.name}${eq?' [装備中]':''}</div><div class="item-desc">${it.desc}</div></div>
+    </div>`;
+  });
+  openPanel('📦 アイテム',html);
+  // Item click handlers
+  setTimeout(()=>{
+    document.querySelectorAll('.item-slot').forEach(el=>{
+      el.addEventListener('pointerup',()=>{
+        const idx=parseInt(el.dataset.idx);
+        useItem(idx);
+      });
+    });
+  },100);
+}
+function openStats(){
+  const p=game.player;
+  let html=`
+    <div class="stat-row"><span>レベル</span><span>${p.level}</span></div>
+    <div class="stat-row"><span>HP</span><span>${p.hp}/${p.maxHp}</span></div>
+    <div class="stat-row"><span>MP</span><span>${p.mp}/${p.maxMp}</span></div>
+    <div class="stat-row"><span>経験値</span><span>${p.exp}/${p.expNeeded}</span></div>
+    <div class="stat-row"><span>攻撃力</span><span>${p.atk}${p.weapon?' (+'+itemDB[p.weapon].effect.atk+')':''}</span></div>
+    <div class="stat-row"><span>防御力</span><span>${p.def}${p.armor?' (+'+itemDB[p.armor].effect.def+')':''}</span></div>
+    <div class="stat-row"><span>ゴールド</span><span>🪙${p.gold}</span></div>
+    <div class="stat-row"><span>武器</span><span>${p.weapon?itemDB[p.weapon].name:'なし'}</span></div>
+    <div class="stat-row"><span>防具</span><span>${p.armor?itemDB[p.armor].name:'なし'}</span></div>
+    <div class="stat-row"><span>アクセ</span><span>${p.accessory?itemDB[p.accessory].name:'なし'}</span></div>
+    <div style="margin-top:10px"><button class="menu-btn" id="btn-save">💾 セーブ</button></div>
+  `;
+  openPanel('📋 ステータス',html);
+  setTimeout(()=>{
+    const b=document.getElementById('btn-save');
+    if(b)b.addEventListener('pointerup',()=>{if(saveGame()){showDialog('システム',['セーブしました！'],()=>closePanel())}else{showDialog('システム',['セーブに失敗しました…'],()=>closePanel())}});
+  },100);
+}
+
+function openMenu(){
+  const p=game.player;
+  let html=`
+    <div style="text-align:center;padding:10px;font-size:16px">${p.level} ｜ HP:${p.hp}/${p.maxHp} ｜ 🪙${p.gold}</div>
+    <button class="menu-btn" id="m-inv">📦 アイテム</button>
+    <button class="menu-btn" id="m-stats">📋 ステータス</button>
+    <button class="menu-btn" id="m-save">💾 セーブ</button>
+    <button class="menu-btn" id="m-title">🏠 タイトルへ</button>
+  `;
+  openPanel('メニュー',html);
+  setTimeout(()=>{
+    document.getElementById('m-inv')?.addEventListener('pointerup',()=>{closePanel();openInventory()});
+    document.getElementById('m-stats')?.addEventListener('pointerup',()=>{closePanel();openStats()});
+    document.getElementById('m-save')?.addEventListener('pointerup',()=>{saveGame();closePanel();showDialog('システム',['セーブしました！'])});
+    document.getElementById('m-title')?.addEventListener('pointerup',()=>{closePanel();showTitle()});
+  },100);
+}
+
+function useItem(idx){
+  const key=game.inventory[idx];
+  if(!key)return;
+  const it=itemDB[key];
+  const p=game.player;
+  if(it.type==='consumable'){
+    if(it.effect.hp){p.hp=Math.min(p.maxHp,p.hp+it.effect.hp);addEffect('+'+it.effect.hp+' HP','#4f4',p.x,p.y-8)}
+    if(it.effect.mp){p.mp=Math.min(p.maxMp,p.mp+it.effect.mp);addEffect('+'+it.effect.mp+' MP','#48f',p.x,p.y-8)}
+    game.inventory.splice(idx,1);
+    closePanel();
+    showDialog('',[it.name+' を使った！']);
+  }else if(it.type==='weapon'){
+    if(p.weapon){game.inventory.push(p.weapon)}
+    game.inventory.splice(idx,1);
+    p.weapon=key;p.atk+=it.effect.atk;
+    closePanel();
+    showDialog('',[it.name+' を装備した！']);
+  }else if(it.type==='armor'){
+    if(p.armor){game.inventory.push(p.armor)}
+    game.inventory.splice(idx,1);
+    p.armor=key;p.def+=it.effect.def;
+    closePanel();
+    showDialog('',[it.name+' を装備した！']);
+  }else if(it.type==='accessory'){
+    if(p.accessory){game.inventory.push(p.accessory)}
+    game.inventory.splice(idx,1);
+    p.accessory=key;p.def+=(it.effect.def||0);
+    closePanel();
+    showDialog('',[it.name+' を装備した！']);
+  }
+  updateHUD();
+}
+
+// --- Interaction ---
+function interact(){
+  const p=game.player;
+  // Check nearby NPCs
+  const nd=dirToNum(...numToDir(game.player.dir==='down'?2:game.player.dir==='up'?8:game.player.dir==='left'?4:6));
+  const [dx,dy]=numToDir(nd||2);
+  const px=p.x+dx*TILE,py=p.y+dy*TILE;
+  // NPCs
+  for(const npc of game.npcs){
+    if(!npc.alive)continue;
+    const dist=Math.hypot(px-npc.x*TILE,py-npc.y*TILE);
+    if(dist<TILE*2){
+      showDialog(npc.name,npc.dialogue);
+      return;
+    }
+  }
+  // Items on ground
+  for(const item of game.items){
+    if(item.collected)continue;
+    const dist=Math.hypot(p.x-item.x,p.y-item.y);
+    if(dist<TILE*1.5){
+      item.collected=true;
+      addToInventory(item.item);
+      updateHUD();
+      return;
+    }
+  }
+}
+
+function addToInventory(key){
+  game.inventory.push(key);
+  const it=itemDB[key];
+  addEffect(it.name+' GET!','#ff0',game.player.x,game.player.y-8);
+}
+
+// --- Combat ---
+function tryAttack(enemy){
+  const p=game.player;
+  const dmg=Math.max(1,p.atk-enemy.def+Math.floor(Math.random()*5));
+  enemy.hp-=dmg;
+  addEffect(''+dmg,'#f44',enemy.x,enemy.y-8);
+  game.screenShake=4;
+  if(enemy.hp<=0){
+    enemy.alive=false;
+    const exp=enemy.level*10+Math.floor(Math.random()*10);
+    const gold=enemy.level*5+Math.floor(Math.random()*10);
+    p.exp+=exp;p.gold+=gold;
+    addEffect('+'+exp+' EXP','#8f8',enemy.x,enemy.y-12);
+    addEffect('+'+gold+' G','#fd0',enemy.x,enemy.y-4);
+    // Drop chance
+    if(Math.random()<.3){
+      const drops=['potion','herb','antidote'];
+      const dk=drops[Math.floor(Math.random()*drops.length)];
+      game.items.push({x:enemy.x,y:enemy.y,item:dk,collected:false});
+    }
+    // Level up check
+    while(p.exp>=p.expNeeded){
+      p.exp-=p.expNeeded;p.level++;p.expNeeded=Math.floor(p.expNeeded*1.5);
+      p.maxHp+=8;p.hp=p.maxHp;p.maxMp+=4;p.mp=p.maxMp;
+      p.atk+=2;p.def+=1;
+      addEffect('LEVEL UP!','#ff0',p.x,p.y-16);
+    }
+    updateHUD();
+  }
+}
+
+// --- Effects ---
+function addEffect(text,color,x,y){
+  game.effects.push({text,color,x,y,life:40,maxLife:40});
+}
+function updateEffects(){
+  for(let i=game.effects.length-1;i>=0;i--){
+    game.effects[i].life--;
+    if(game.effects[i].life<=0)game.effects.splice(i,1);
+  }
+}
+
+// --- Update ---
+function update(){
+  if(game.titleScreen||game.dialog||game.panelOpen)return;
+  const p=game.player;
+  updateDirection();
+  const dir=game.dirPressed;
+  if(dir!==0){
+    const [dx,dy]=numToDir(dir);
+    const spd=p.speed*(dx&&dy?0.707:1); // diagonal speed
+    const nx=p.x+dx*spd;
+    const ny=p.y+dy*spd;
+    // Check collision
+    const margin=4;
+    const points=[
+      [nx-margin,ny-margin],[nx+margin,ny-margin],
+      [nx-margin,ny+margin],[nx+margin,ny+margin],
+      [nx,ny-margin],[nx,ny+margin],[nx-margin,ny],[nx+margin,ny],
+    ];
+    let blocked=false;
+    for(const [cx,cy] of points){
+      if(solidAt(cx,cy)){blocked=true;break}
+    }
+    if(!blocked){
+      p.x=nx;p.y=ny;
+      // Set direction for sprite
+      if(dy<0)p.dir='up';else if(dy>0)p.dir='down';else if(dx<0)p.dir='left';else if(dx>0)p.dir='right';
+      p.walkTimer=(p.walkTimer+1)%16;
+      p.frame=Math.floor(p.walkTimer/8);
+    }
+    // Attack enemies by bumping
+    for(const enemy of game.enemies){
+      if(!enemy.alive)continue;
+      const dist=Math.hypot(p.x-enemy.x,p.y-enemy.y);
+      if(dist<TILE){
+        tryAttack(enemy);
+        // Knockback
+        const ang=Math.atan2(enemy.y-p.y,enemy.x-p.x);
+        enemy.x+=Math.cos(ang)*TILE;
+        enemy.y+=Math.sin(ang)*TILE;
+        break;
+      }
+    }
+  }else{
+    p.frame=0;p.walkTimer=0;
+  }
+
+  // Update enemies
+  for(const enemy of game.enemies){
+    if(!enemy.alive)continue;
+    enemy.timer=(enemy.timer||0)+1;
+    if(enemy.timer%60===0){
+      // Random move or chase
+      const dist=Math.hypot(p.x-enemy.x,p.y-enemy.y);
+      if(dist<TILE*5&&dist>0){
+        const ang=Math.atan2(p.y-enemy.y,p.x-enemy.x);
+        const mx=Math.cos(ang)*TILE*0.3;
+        const my=Math.sin(ang)*TILE*0.3;
+        const nnx=enemy.x+mx,nny=enemy.y+my;
+        let eblocked=false;
+        for(const [cx,cy] of [[nnx-2,nny-2],[nnx+2,nny-2],[nnx-2,nny+2],[nnx+2,nny+2]]){
+          if(solidAt(cx,cy)){eblocked=true;break}
+        }
+        if(!eblocked){enemy.x=nnx;enemy.y=nny}
+        if(mx>0)enemy.dir='right';else if(mx<0)enemy.dir='left';else if(my<0)enemy.dir='up';else enemy.dir='down';
+      }else{
+        const rdir=numToDir([1,2,3,4,6,7,8,9][Math.floor(Math.random()*8)]);
+        const nnx=enemy.x+rdir[0]*TILE*0.5,nny=enemy.y+rdir[1]*TILE*0.5;
+        let eblocked2=false;
+        for(const [cx,cy] of [[nnx-2,nny-2],[nnx+2,nny-2],[nnx-2,nny+2],[nnx+2,nny+2]]){
+          if(solidAt(cx,cy)){eblocked2=true;break}
+        }
+        if(!eblocked2){enemy.x=nnx;enemy.y=nny}
+        if(rdir[1]<0)enemy.dir='up';else if(rdir[1]>0)enemy.dir='down';else if(rdir[0]<0)enemy.dir='left';else enemy.dir='right';
+      }
+    }
+    enemy.frame=enemy.timer%30<15?0:1;
+    // Enemy attacks player
+    if(enemy.timer%90===45){
+      const edist=Math.hypot(p.x-enemy.x,p.y-enemy.y);
+      if(edist<TILE*1.5){
+        const edmg=Math.max(1,enemy.atk-p.def+Math.floor(Math.random()*3));
+        p.hp-=edmg;
+        addEffect(''+edmg,'#f00',p.x,p.y-8);
+        game.screenShake=6;
+        if(p.hp<=0){p.hp=0;playerDeath()}
+        updateHUD();
+      }
+    }
+  }
+
+  // Update camera
+  game.camera.x=p.x-CW/2;
+  game.camera.y=p.y-CH/2;
+  game.camera.x=Math.max(0,Math.min(MW*TILE-CW,game.camera.x));
+  game.camera.y=Math.max(0,Math.min(MH*TILE-CH,game.camera.y));
+  if(MW*TILE<=CW)game.camera.x=(MW*TILE-CW)/2;
+  if(MH*TILE<=CH)game.camera.y=(MH*TILE-CH)/2;
+
+  updateEffects();
+
+  // Screen shake
+  if(game.screenShake>0)game.screenShake--;
+
+  // Check map exits
+  const exits=game.map._exits||{};
+  if(exits.north&&p.y<TILE){changeMap(exits.north.map,exits.north.x,exits.north.y)}
+  if(exits.south&&p.y>(MH-1)*TILE){changeMap(exits.south.map,exits.south.x,exits.south.y)}
+  if(exits.east&&p.x>(MW-1)*TILE){changeMap(exits.east.map,exits.east.x,exits.east.y)}
+  if(exits.west&&p.x<TILE){changeMap(exits.west.map,exits.west.x,exits.west.y)}
+}
+
+function changeMap(name,px,py){
+  loadMap(name);
+  game.player.x=px*TILE+TILE/2;
+  game.player.y=py*TILE+TILE/2;
+  saveGame();
+  showDialog('',[maps[name].name+' についた！'],()=>{});
+}
+
+function playerDeath(){
+  game.player.hp=game.player.maxHp;
+  game.player.mp=game.player.maxMp;
+  game.player.gold=Math.floor(game.player.gold*.7);
+  loadMap(game.mapName);
+  showDialog('システム',['やられてしまった…','お金を少し落として\n町に戻された…']);
+}
+
+// --- Render ---
+function drawTile(x,y){
+  const tile=game.map[y][x];
+  const gx=x*TILE,gy=y*TILE;
+  switch(tile){
+    case T.GRASS: ctx.fillStyle=C.GRASS;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#90c850';ctx.fillRect(gx+4,gy+10,2,2);break;
+    case T.GRASS2: ctx.fillStyle=C.GRASS2;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#80c048';ctx.fillRect(gx+10,gy+5,2,3);break;
+    case T.DIRT: ctx.fillStyle=C.DIRT;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.DIRT2;ctx.fillRect(gx+2,gy+3,2,2);ctx.fillRect(gx+10,gy+8,3,2);break;
+    case T.DIRT2: ctx.fillStyle='#b89848';ctx.fillRect(gx,gy,TILE,TILE);break;
+    case T.WATER: ctx.fillStyle=C.WATER;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WATER2;ctx.fillRect(gx+2,gy,1,TILE);ctx.fillRect(gx+10,gy+4,1,TILE);break;
+    case T.STONE: ctx.fillStyle=C.STONE;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.STONE2;ctx.fillRect(gx+2,gy+2,12,1);ctx.fillRect(gx+1,gy+6,14,1);ctx.fillRect(gx+4,gy+10,8,1);break;
+    case T.TREE: ctx.fillStyle=C.GRASS;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#684820';ctx.fillRect(gx+6,gy+8,4,8);ctx.fillStyle=C.LEAF;ctx.beginPath();ctx.arc(gx+8,gy+6,7,0,Math.PI*2);ctx.fill();ctx.fillStyle=C.LEAF2;ctx.beginPath();ctx.arc(gx+5,gy+8,4,0,Math.PI*2);ctx.fill();break;
+    case T.WALL: ctx.fillStyle='#988870';ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#887860';ctx.fillRect(gx,gy+2,TILE,1);ctx.fillRect(gx,gy+6,TILE,1);ctx.fillRect(gx,gy+10,TILE,1);ctx.fillRect(gx,gy+14,TILE,1);break;
+    case T.ROOF: ctx.fillStyle=C.ROOF;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.ROOF2;ctx.fillRect(gx+2,gy+8,12,8);break;
+    case T.DOOR: ctx.fillStyle=C.WOOD;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD2;ctx.fillRect(gx+2,gy+2,5,12);ctx.fillStyle='#f8d040';ctx.fillRect(gx+10,gy+6,3,3);break;
+    case T.SIGN: ctx.fillStyle=C.DIRT;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD;ctx.fillRect(gx+6,gy+2,4,14);ctx.fillStyle='#f8e8c0';ctx.fillRect(gx+3,gy,10,4);break;
+    case T.CHEST: ctx.fillStyle=C.DIRT2;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD;ctx.fillRect(gx+1,gy+4,14,12);ctx.fillStyle=C.WOOD2;ctx.fillRect(gx+4,gy+2,8,4);ctx.fillStyle='#f8d040';ctx.fillRect(gx+7,gy+5,3,3);break;
+    case T.FLOWER: ctx.fillStyle=C.GRASS;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#f8a0e0';ctx.fillRect(gx+6,gy+8,4,6);ctx.fillStyle='#f8d040';ctx.fillRect(gx+7,gy+7,2,3);break;
+    case T.BRIDGE: ctx.fillStyle=C.WOOD;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD2;ctx.fillRect(gx+2,gy+2,TILE-4,1);ctx.fillRect(gx+2,gy+6,TILE-4,1);ctx.fillRect(gx+2,gy+10,TILE-4,1);break;
+    case T.STAIRS_D: ctx.fillStyle=C.DIRT2;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#686868';for(let i=0;i<4;i++)ctx.fillRect(gx+i*4,gy+4+i*3,4,2);break;
+    case T.STAIRS_U: ctx.fillStyle=C.DIRT2;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#787878';for(let i=0;i<4;i++)ctx.fillRect(gx+i*4,gy+12-i*3,4,2);break;
+    case T.COUNTER: ctx.fillStyle=C.WOOD;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD2;ctx.fillRect(gx,gy+4,TILE,2);ctx.fillRect(gx,gy+12,TILE,2);break;
+    case T.BED: ctx.fillStyle=C.DIRT2;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#f8f8f8';ctx.fillRect(gx+2,gy+2,12,10);ctx.fillStyle='#e0d0c0';ctx.fillRect(gx+2,gy+4,12,4);ctx.fillStyle='#f8c898';ctx.fillRect(gx+8,gy+6,4,4);break;
+    case T.ROOF2: ctx.fillStyle='#e86050';ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle='#c04030';ctx.fillRect(gx+2,gy+8,12,8);break;
+    case T.FENCE: ctx.fillStyle=C.GRASS;ctx.fillRect(gx,gy,TILE,TILE);ctx.fillStyle=C.WOOD;ctx.fillRect(gx+6,gy+4,2,12);ctx.fillRect(gx+2,gy+8,12,2);break;
+    default: ctx.fillStyle=C.GRASS;ctx.fillRect(gx,gy,TILE,TILE);break;
+  }
+}
+
+function drawSprite(sprite,dx,dy,ox,oy){
+  const sp=sprite;
+  if(!sp)return;
+  const frameW=16,frameH=16;
+  let sx=0,sy=0;
+  // sp is [frame0, frame1] or single canvas
+  const frame=Array.isArray(sp)?sp[ox%sp.length]:sp;
+  ctx.drawImage(frame,dx-Math.floor(ox*0),dy-Math.floor(oy*0));
+}
+
+function render(){
+  ctx.clearRect(0,0,CW,CH);
+
+  // Screen shake
+  let sx=0,sy=0;
+  if(game.screenShake>0){
+    sx=(Math.random()-.5)*game.screenShake;
+    sy=(Math.random()-.5)*game.screenShake;
+  }
+
+  ctx.save();
+  ctx.translate(-game.camera.x+sx,-game.camera.y+sy);
+
+  // Draw visible tiles
+  const stx=Math.floor(game.camera.x/TILE);
+  const sty=Math.floor(game.camera.y/TILE);
+  const etx=Math.min(MW,stx+Math.ceil(CW/TILE)+2);
+  const ety=Math.min(MH,sty+Math.ceil(CH/TILE)+2);
+  for(let y=Math.max(0,sty);y<ety;y++){
+    for(let x=Math.max(0,stx);x<etx;x++){
+      drawTile(x,y);
+    }
+  }
+
+  // Draw items
+  for(const item of game.items){
+    if(item.collected)continue;
+    const bob=Math.sin(Date.now()/200+item.x)*2;
+    ctx.drawImage(itemSprite,item.x-8,item.y-8+bob);
+    // Sparkle
+    ctx.fillStyle='rgba(255,255,200,'+(.4+.3*Math.sin(Date.now()/300+item.x)) +')';
+    ctx.fillRect(item.x-1,item.y-12+bob,2,2);
+  }
+
+  // Draw NPCs
+  for(const npc of game.npcs){
+    if(!npc.alive)continue;
+    const sp=npcSprites[npc.sprite];
+    if(sp)ctx.drawImage(sp,npc.x*TILE-8,npc.y*TILE-10);
+    // Name tag
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(npc.x*TILE-20,npc.y*TILE-18,40,10);
+    ctx.fillStyle='#f8e8c0';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText(npc.name,npc.x*TILE,npc.y*TILE-10);
+  }
+
+  // Draw enemies
+  for(const enemy of game.enemies){
+    if(!enemy.alive)continue;
+    const sp=enemySprites[enemy.sprite];
+    if(sp)ctx.drawImage(sp,enemy.x-8,enemy.y-10);
+    // HP bar
+    if(enemy.hp<enemy.maxHp){
+      ctx.fillStyle='#400';ctx.fillRect(enemy.x-8,enemy.y-14,16,3);
+      ctx.fillStyle='#f00';ctx.fillRect(enemy.x-8,enemy.y-14,16*(enemy.hp/enemy.maxHp),3);
+    }
+  }
+
+  // Draw player
+  const p=game.player;
+  const pspr=playerSprites[p.dir];
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(p.x,p.y+4,6,3,0,0,Math.PI*2);ctx.fill();
+  // Sprite
+  const frame=pspr?pspr[p.frame%pspr.length]:null;
+  if(frame)ctx.drawImage(frame,p.x-8,p.y-10);
+
+  // Draw effects
+  for(const eff of game.effects){
+    const alpha=eff.life/eff.maxLife;
+    const offY=(1-alpha)*-16;
+    ctx.fillStyle=eff.color.replace(')','').replace('rgb','rgba');
+    if(eff.color.startsWith('#')){
+      const r=parseInt(eff.color.slice(1,3),16);
+      const g=parseInt(eff.color.slice(3,5),16);
+      const b=parseInt(eff.color.slice(5,7),16);
+      ctx.fillStyle=`rgba(${r},${g},${b},${alpha})`;
+    }
+    ctx.font='bold 8px monospace';ctx.textAlign='center';
+    ctx.fillText(eff.text,eff.x,eff.y+offY);
+  }
+
+  ctx.restore();
+
+  // Map name overlay
+  ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(2,2,100,14);
+  ctx.fillStyle='#f8e8c0';ctx.font='9px monospace';ctx.textAlign='left';ctx.fillText(game.map._name||'',6,12);
+}
+
+// --- HUD ---
+function updateHUD(){
+  const p=game.player;
+  document.getElementById('hp-bar').style.width=(p.hp/p.maxHp*100)+'%';
+  document.getElementById('mp-bar').style.width=(p.mp/p.maxMp*100)+'%';
+  document.getElementById('hp-txt').textContent=p.hp+'/'+p.maxHp;
+  document.getElementById('mp-txt').textContent=p.mp+'/'+p.maxMp;
+  document.getElementById('gold-txt').textContent=p.gold;
+  document.getElementById('lv-txt').textContent=p.level;
+}
+
+// --- Title Screen ---
+function showTitle(){
+  game.titleScreen=true;
+  document.getElementById('title-screen').style.display='flex';
+  const hasSave=!!localStorage.getItem('kamiina_save');
+  document.getElementById('btn-continue').style.display=hasSave?'block':'none';
+}
+
+function startNewGame(){
+  game.player={x:9*TILE+TILE/2,y:9*TILE+TILE/2,dir:'down',frame:0,walkTimer:0,speed:2,
+    hp:50,maxHp:50,mp:25,maxMp:25,level:1,exp:0,expNeeded:30,
+    atk:8,def:3,gold:50,
+    weapon:null,armor:null,accessory:null,
+  };
+  game.inventory=['potion','herb'];
+  game.effects=[];
+  game.dialog=null;
+  game.panelOpen=false;
+  loadMap('town');
+  updateHUD();
+  game.titleScreen=false;
+  document.getElementById('title-screen').style.display='none';
+}
+
+document.getElementById('btn-newgame').addEventListener('pointerup',startNewGame);
+document.getElementById('btn-continue').addEventListener('pointerup',()=>{
+  if(loadGame()){
+    loadMap(game.mapName);
+    updateHUD();
+    game.titleScreen=false;
+    document.getElementById('title-screen').style.display='none';
+  }
+});
+
+// --- Game Loop ---
+function gameLoop(){
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// --- Init ---
+function init(){
+  const hasSave=!!localStorage.getItem('kamiina_save');
+  document.getElementById('btn-continue').style.display=hasSave?'block':'none';
+  updateHUD();
+  // Pre-render with title screen
+  ctx.fillStyle='#0d0d1a';ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle='#f8e8c0';ctx.font='20px monospace';ctx.textAlign='center';
+  ctx.fillText('KAMIINA',CW/2,CH/2);
+  gameLoop();
+}
+init();
+
+console.log('🎮 KAMIINA - Ready!');
+console.log('Controls: D-pad to move, A to interact, B to menu');
+console.log('Keyboard: WASD/Arrow keys, E to interact, ESC for menu');
+</script>
+</body>
+</html>
