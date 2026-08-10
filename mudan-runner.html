@@ -333,21 +333,30 @@ let score, gameSpeed, baseSpeed, difficultyTimer, boostTimer;
 let energy, energyMax;
 let shakeTimer, shakeIntensity;
 
+// 三类障碍物：1=地面(必须跳) 2=低空宽体(必须蹲) 3=中等(跳或蹲皆可)
 const OBSTACLE_TYPES = {
+  // 类型1：地面障碍物 — 贴地，只能跳跃闪避
   ground: [
-    { name: 'rock', w: 36, h: 32, color: '#888' },
-    { name: 'box', w: 34, h: 34, color: '#b89060' },
-    { name: 'stump', w: 30, h: 38, color: '#8b6914' },
+    { name: 'rock', w: 40, h: 36, color: '#888', category: 1 },
+    { name: 'box', w: 38, h: 40, color: '#b89060', category: 1 },
+    { name: 'stump', w: 36, h: 44, color: '#8b6914', category: 1 },
   ],
-  air: [
-    { name: 'bird', w: 40, h: 28, color: '#e88080' },
-    { name: 'sign', w: 44, h: 34, color: '#d8c090' },
-    { name: 'branch', w: 48, h: 22, color: '#6b8b3a' },
+  // 类型2：低空宽体障碍物 — 极大宽度，只能蹲伏闪避
+  low: [
+    { name: 'barrier', w: 170, h: 22, color: '#e88040', category: 2 },
+    { name: 'beam', w: 190, h: 26, color: '#c08050', category: 2 },
+    { name: 'banner', w: 200, h: 24, color: '#e06060', category: 2 },
+  ],
+  // 类型3：中等障碍物 — 跳跃或蹲伏皆可闪避
+  either: [
+    { name: 'bird', w: 45, h: 22, color: '#e88080', category: 3 },
+    { name: 'sign', w: 48, h: 24, color: '#d8c090', category: 3 },
+    { name: 'branch', w: 50, h: 20, color: '#6b8b3a', category: 3 },
   ],
 };
 
 function resetGame() {
-  const pw = 40, ph = 56;
+  const pw = 52, ph = 72;
   player = {
     x: W * 0.22, y: groundY - ph / 2,
     w: pw, h: ph,
@@ -360,7 +369,7 @@ function resetGame() {
   particles = [];
   bgElements = initBackground();
   score = 0;
-  baseSpeed = W * 0.006;
+  baseSpeed = W * 0.01;
   gameSpeed = baseSpeed;
   difficultyTimer = 0;
   boostTimer = 0;
@@ -466,30 +475,57 @@ function playerCrouch() {
   if (!player.jumping && !player.crouching) {
     player.crouching = true;
     playSFX('crouch');
-    setTimeout(() => { player.crouching = false; }, 400);
+    setTimeout(() => { player.crouching = false; }, 500);
   }
 }
 
 // --- Obstacles ---
 function spawnObstacle() {
-  const isAir = Math.random() < 0.4;
-  const types = isAir ? OBSTACLE_TYPES.air : OBSTACLE_TYPES.ground;
-  const type = types[Math.floor(Math.random() * types.length)];
-  const ox = W + 60;
-  let oy;
-  if (isAir) {
-    oy = groundY - player.h - Math.random() * 50 - 10;
+  // 随机选择三类障碍物之一：1=地面(必须跳) 2=低空宽体(必须蹲) 3=中等(跳蹲皆可)
+  const roll = Math.random();
+  let category, types, ox, oy;
+  ox = W + 60;
+
+  if (roll < 0.4) {
+    // 类型1：地面障碍物 — 贴地，只能跳跃闪避
+    types = OBSTACLE_TYPES.ground;
+    const type = types[Math.floor(Math.random() * types.length)];
+    oy = groundY - type.h / 2; // 直接贴地
+    obstacles.push({
+      x: ox, y: oy,
+      w: type.w, h: type.h,
+      type: type.name,
+      category: 1,
+      color: type.color,
+      passed: false,
+    });
+  } else if (roll < 0.7) {
+    // 类型2：低空宽体障碍物 — 极大宽度，只能蹲伏闪避
+    types = OBSTACLE_TYPES.low;
+    const type = types[Math.floor(Math.random() * types.length)];
+    oy = groundY - player.h * 0.48; // 低空，刚好在站立角色中间
+    obstacles.push({
+      x: ox, y: oy,
+      w: type.w, h: type.h,
+      type: type.name,
+      category: 2,
+      color: type.color,
+      passed: false,
+    });
   } else {
-    oy = groundY - type.h / 2;
+    // 类型3：中等障碍物 — 跳跃或蹲伏皆可
+    types = OBSTACLE_TYPES.either;
+    const type = types[Math.floor(Math.random() * types.length)];
+    oy = groundY - player.h * 0.66; // 中等高度
+    obstacles.push({
+      x: ox, y: oy,
+      w: type.w, h: type.h,
+      type: type.name,
+      category: 3,
+      color: type.color,
+      passed: false,
+    });
   }
-  obstacles.push({
-    x: ox, y: oy,
-    w: type.w, h: type.h,
-    type: type.name,
-    air: isAir,
-    color: type.color,
-    passed: false,
-  });
 }
 
 let obstacleSpawnTimer = 0;
@@ -541,7 +577,7 @@ function updateGame(dt) {
 
   // Difficulty
   difficultyTimer += dt / 1000;
-  baseSpeed = W * 0.006 + difficultyTimer * W * 0.00003;
+  baseSpeed = W * 0.01 + difficultyTimer * W * 0.00004;
   if (boostTimer <= 0) gameSpeed = baseSpeed;
 
   // Player physics
@@ -555,13 +591,13 @@ function updateGame(dt) {
     }
   }
 
-  // Crouch hitbox
-  const playerHitW = player.w * 0.7;
+  // Crouch hitbox — 更深的下蹲幅度
+  const playerHitW = player.w * 0.65;
   let playerHitH = player.h;
   let playerHitY = player.y;
   if (player.crouching) {
-    playerHitH = player.h * 0.5;
-    playerHitY = player.y + player.h * 0.25;
+    playerHitH = player.h * 0.35;
+    playerHitY = player.y + player.h * 0.325;
   }
 
   // Update obstacles
@@ -805,7 +841,7 @@ function drawBackground() {
 function drawPlayerChar(x, y, w, h, crouching, jumping, frame, boostActive) {
   ctx.save();
   const cx = x, cy = y;
-  const scale = w / 40;
+  const scale = w / 52;
 
   // Boost glow
   if (boostActive) {
@@ -974,10 +1010,14 @@ function drawPlayerChar(x, y, w, h, crouching, jumping, frame, boostActive) {
 
 function drawObstacle(ob) {
   ctx.save();
-  const { x, y, w, h, type, air } = ob;
+  const { x, y, w, h, type, category } = ob;
   const cx = x, cy = y;
 
+  // 根据类型绘制不同的视觉提示底色
+  // 类型1(地面)=红色调边框，类型2(低空宽体)=橙色调，类型3(中等)=蓝色调
+
   switch (type) {
+    // ===== 类型1：地面障碍物（必须跳跃）=====
     case 'rock':
       ctx.fillStyle = '#999';
       ctx.beginPath();
@@ -993,12 +1033,16 @@ function drawObstacle(ob) {
       ctx.beginPath();
       ctx.arc(cx - w * 0.1, cy - h * 0.15, w * 0.3, 0, Math.PI * 2);
       ctx.fill();
+      // 红色警示条纹
+      ctx.fillStyle = 'rgba(220,50,50,.5)';
+      ctx.fillRect(cx - w / 2, cy - 2, w, 4);
       break;
+
     case 'box':
       ctx.fillStyle = '#c89440';
       ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
       ctx.strokeStyle = '#8b6914';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
       ctx.beginPath();
       ctx.moveTo(cx - w / 2, cy - h / 2);
@@ -1008,7 +1052,11 @@ function drawObstacle(ob) {
       ctx.moveTo(cx + w / 2, cy - h / 2);
       ctx.lineTo(cx - w / 2, cy + h / 2);
       ctx.stroke();
+      // 红色警示条纹
+      ctx.fillStyle = 'rgba(220,50,50,.45)';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, 5);
       break;
+
     case 'stump':
       ctx.fillStyle = '#8b6914';
       ctx.fillRect(cx - w / 2, cy - h / 4, w, h / 2);
@@ -1023,14 +1071,94 @@ function drawObstacle(ob) {
       // Roots
       ctx.fillStyle = '#7a5810';
       ctx.fillRect(cx - w / 2 - 4, cy - 2, w + 8, 6);
+      // 红色警示点
+      ctx.fillStyle = '#d04040';
+      ctx.beginPath();
+      ctx.arc(cx, cy - h * 0.15, 4, 0, Math.PI * 2);
+      ctx.fill();
       break;
+
+    // ===== 类型2：低空宽体障碍物（必须蹲伏）=====
+    case 'barrier':
+      // 宽大的横栏 — 橙色警示
+      ctx.fillStyle = '#e88040';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+      ctx.fillStyle = '#f09050';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h * 0.35);
+      // 斜条纹警示
+      ctx.strokeStyle = 'rgba(255,255,0,.5)';
+      ctx.lineWidth = 2;
+      for (let sx = cx - w / 2 + 8; sx < cx + w / 2; sx += 16) {
+        ctx.beginPath();
+        ctx.moveTo(sx, cy - h / 2);
+        ctx.lineTo(sx + 12, cy + h / 2);
+        ctx.stroke();
+      }
+      // 边框
+      ctx.strokeStyle = '#c06020';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+      // 箭头提示（下蹲方向）
+      ctx.fillStyle = '#ff0';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▼', cx, cy + h / 2 + 14);
+      break;
+
+    case 'beam':
+      // 横梁 — 深色木质
+      ctx.fillStyle = '#a06840';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+      ctx.fillStyle = '#b88058';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h * 0.4);
+      ctx.fillStyle = '#885028';
+      ctx.fillRect(cx - w / 2, cy + h * 0.15, w, h * 0.3);
+      // 木纹
+      ctx.strokeStyle = '#785020';
+      ctx.lineWidth = 1;
+      for (let sx = cx - w / 2; sx < cx + w / 2; sx += 14) {
+        ctx.beginPath();
+        ctx.moveTo(sx, cy - h / 2);
+        ctx.lineTo(sx - 3, cy + h / 2);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#603010';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+      // 提示
+      ctx.fillStyle = '#ff0';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▼ 蹲!', cx, cy + h / 2 + 14);
+      break;
+
+    case 'banner':
+      // 横幅 — 红色醒目
+      ctx.fillStyle = '#d84040';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+      ctx.fillStyle = '#e86060';
+      ctx.fillRect(cx - w / 2, cy - h / 2, w, h * 0.5);
+      // 文字
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚠ DUCK ⚠', cx, cy + 4);
+      ctx.strokeStyle = '#a02020';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+      // 提示
+      ctx.fillStyle = '#ff0';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▼ 蹲!', cx, cy + h / 2 + 14);
+      break;
+
+    // ===== 类型3：中等障碍物（跳跃或蹲伏皆可）=====
     case 'bird':
-      ctx.fillStyle = air ? '#e88080' : '#888';
-      // Body
+      ctx.fillStyle = '#e88080';
       ctx.beginPath();
       ctx.ellipse(cx, cy, w * 0.3, h * 0.35, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Wings
       const wingFlap = Math.sin(Date.now() / 120) * 8;
       ctx.fillStyle = '#f0a0a0';
       ctx.beginPath();
@@ -1045,7 +1173,6 @@ function drawObstacle(ob) {
       ctx.lineTo(cx - w * 0.05, cy - h * 0.1);
       ctx.closePath();
       ctx.fill();
-      // Beak
       ctx.fillStyle = '#ffa040';
       ctx.beginPath();
       ctx.moveTo(cx + w * 0.3, cy);
@@ -1053,28 +1180,36 @@ function drawObstacle(ob) {
       ctx.lineTo(cx + w * 0.3, cy + h * 0.1);
       ctx.closePath();
       ctx.fill();
-      // Eye
       ctx.fillStyle = '#000';
       ctx.beginPath();
       ctx.arc(cx + w * 0.12, cy - h * 0.08, 2, 0, Math.PI * 2);
       ctx.fill();
+      // 蓝色提示点（跳或蹲皆可）
+      ctx.fillStyle = '#60a0f0';
+      ctx.beginPath();
+      ctx.arc(cx, cy - h * 0.45, 3, 0, Math.PI * 2);
+      ctx.fill();
       break;
+
     case 'sign':
-      // Post
       ctx.fillStyle = '#8b6914';
       ctx.fillRect(cx - 2, cy - h * 0.2, 4, h);
-      // Board
       ctx.fillStyle = '#e8d8a0';
       ctx.fillRect(cx - w / 2, cy - h / 2, w, h * 0.6);
       ctx.strokeStyle = '#8b6914';
       ctx.lineWidth = 2;
       ctx.strokeRect(cx - w / 2, cy - h / 2, w, h * 0.6);
-      // Text
       ctx.fillStyle = '#604020';
       ctx.font = '8px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('⚠', cx, cy - h * 0.1);
+      // 蓝色提示
+      ctx.fillStyle = '#60a0f0';
+      ctx.beginPath();
+      ctx.arc(cx, cy - h / 2 - 2, 3, 0, Math.PI * 2);
+      ctx.fill();
       break;
+
     case 'branch':
       ctx.strokeStyle = '#6b8b3a';
       ctx.lineWidth = 6;
@@ -1087,13 +1222,17 @@ function drawObstacle(ob) {
       ctx.moveTo(cx - w * 0.1, cy - h * 0.2);
       ctx.quadraticCurveTo(cx + w * 0.2, cy - h * 0.3, cx + w / 2, cy + h * 0.1);
       ctx.stroke();
-      // Leaves
       ctx.fillStyle = '#8ab84a';
       ctx.beginPath();
       ctx.arc(cx + w * 0.15, cy - h * 0.35, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
       ctx.arc(cx + w * 0.3, cy - h * 0.15, 6, 0, Math.PI * 2);
+      ctx.fill();
+      // 蓝色提示点
+      ctx.fillStyle = '#60a0f0';
+      ctx.beginPath();
+      ctx.arc(cx + w * 0.25, cy - h * 0.3, 3, 0, Math.PI * 2);
       ctx.fill();
       break;
   }
