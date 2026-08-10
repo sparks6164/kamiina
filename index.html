@@ -386,19 +386,25 @@ let game={
   screenShake:0,
 };
 
-// --- Init ---
-const canvas=document.getElementById('gc');
-const ctx=canvas.getContext('2d');
-canvas.width=CW;canvas.height=CH;
-resizeCanvas();
+// --- Canvas setup ---
+let canvas,ctx;
+function setupCanvas(){
+  canvas=document.getElementById('gc');
+  if(!canvas){console.error('Canvas element not found!');return false}
+  ctx=canvas.getContext('2d');
+  canvas.width=CW;canvas.height=CH;
+  resizeCanvas();
+  return true;
+}
 
 function resizeCanvas(){
   const cont=document.getElementById('canvas-container');
   const w=cont.clientWidth-8;
   const h=cont.clientHeight-8;
+  if(w<=0||h<=0){canvas.style.width='100%';canvas.style.height='auto';return}
   const scale=Math.min(w/CW,h/CH);
-  canvas.style.width=(CW*scale)+'px';
-  canvas.style.height=(CH*scale)+'px';
+  canvas.style.width=Math.floor(CW*scale)+'px';
+  canvas.style.height=Math.floor(CH*scale)+'px';
 }
 window.addEventListener('resize',resizeCanvas);
 
@@ -1065,6 +1071,7 @@ function gameLoop(){
 
 // --- Init ---
 function init(){
+  if(!setupCanvas()){console.error('Failed to setup canvas');return}
   resizeCanvas();
   const hasSave=!!localStorage.getItem('kamiina_save');
   document.getElementById('btn-continue').style.display=hasSave?'block':'none';
